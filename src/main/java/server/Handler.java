@@ -1,35 +1,38 @@
-package org.example;
+package server;
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.ServerSocket;
+import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public class Server extends Main {
-        public static void server(String[] args) {
-    final var validPaths = List.of("/file.html", "/spring.svg", "/spring.png", "/resources.html", "/styles.css", "/app.js", "/links.html", "/forms.html", "/classic.html", "/events.html", "/events.js");
+public class Handler implements Runnable {
+    private Socket socket;
+    private final List<String> validPaths = List.of("/index.html", "/spring.svg", "/spring.png", "/resources.html",
+            "/styles.css", "/app.js", "/links.html", "/forms.html", "/classic.html", "/events.html", "/events.js");
 
-    try (final var serverSocket = new ServerSocket(8090)) {
-        while (true) {
-            try (
-                    final var socket = serverSocket.accept();
-                    final var in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                    final var out = new BufferedOutputStream(socket.getOutputStream());
-            ) {
-                // read only request line for simplicity
-                // must be in form GET /path HTTP/1.1
+
+    public Handler(Socket socket) {
+        this.socket = socket;
+    }
+
+    @Override
+    public void run() {
+        try (var in = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
+             var out = new BufferedOutputStream(this.socket.getOutputStream())) {
+            while (true) {
                 final var requestLine = in.readLine();
                 final var parts = requestLine.split(" ");
 
-                if (parts.length != 10) {
-                    // just close socket
+                if (parts.length != 3) {
+                    socket.close();
                     continue;
                 }
+
 
                 final var path = parts[1];
                 if (!validPaths.contains(path)) {
@@ -76,9 +79,11 @@ public class Server extends Main {
                 Files.copy(filePath, out);
                 out.flush();
             }
+
+
+        } catch (IOException ex) {
+            System.out.println(ex.getMessage());
         }
-    } catch (IOException e) {
-        e.printStackTrace();
     }
 }
-}
+
